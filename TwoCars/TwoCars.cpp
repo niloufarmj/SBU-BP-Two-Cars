@@ -35,11 +35,13 @@ Texture home;
 Texture gameover;
 Texture blueObstacle[totalCurrentItems];
 Texture redObstacle[totalCurrentItems];
+Texture scoreTexture;
 
 Sound* scoreSound;
 Sound* dieMissSound;
 Sound* dieCollapseSound;
 
+Font* scoreFont;
 
 int velocity = 4;
 int score = 0;
@@ -65,6 +67,7 @@ SDL_Rect redCarRect = { redCar_x , 540 , 60 , 110 };
 SDL_Rect playRect = { 200 , 350 , 150 , 150 };
 SDL_Rect blueObstacleRect[totalCurrentItems / 2];
 SDL_Rect redObstacleRect[totalCurrentItems / 2];
+
 
 Command currentCommand = Home;
 
@@ -112,6 +115,7 @@ void loadAssets()
 	scoreSound = SBDL::loadSound("assets/Sounds/score.wav");
 	dieCollapseSound = SBDL::loadSound("assets/sounds/die1.wav");
 	dieMissSound = SBDL::loadSound("assets/sounds/die2.wav");
+	scoreFont = SBDL::loadFont("assets/Font/gobold.ttf", 20);
 	//finish loading assets
 
 	for (i = 0; i < totalCurrentItems; i++) 
@@ -182,16 +186,21 @@ void showGameoverPage()
 	SBDL::updateRenderScreen();
 	SBDL::updateEvents();
 
+	scoreTexture = SBDL::createFontTexture(scoreFont , std::to_string(score), 30, 220, 50);
+ 	SBDL::showTexture(scoreTexture, windowWidth * 0.6, windowHeight * 0.3);
+
 	if (SBDL::mouseInRect(retryRect) && SBDL::Mouse.clicked())
 	{
 		SBDL::updateEvents();
 		SBDL::updateRenderScreen();
+		score = 0;
 		currentCommand = Play;
 	}
 	if (SBDL::mouseInRect(newHomeRect) && SBDL::Mouse.clicked())
 	{
 		SBDL::updateEvents();
 		SBDL::updateRenderScreen();
+		score = 0;
 		currentCommand = Home;
 	}
 }
@@ -235,6 +244,11 @@ void playGame()
 	if (elapsedTime < delay)
 		SBDL::delay(delay - elapsedTime);
 
+	// Render score
+    scoreTexture = SBDL::createFontTexture(scoreFont , "SCORE : " + std::to_string(score), 30, 220, 50);
+ 	SBDL::showTexture( scoreTexture, windowWidth * 0.4, windowHeight - scoreTexture.height);
+
+
 	for (i = 0; i < totalCurrentItems / 2; i++)
 	{
 		blueObstacleRect[i] = { blue_x[which_x_blue[i]], blue_o_y[i] , 60 , 60 };
@@ -272,38 +286,47 @@ void playGame()
 	}
 
 	for (i = 0; i < totalCurrentItems / 2; i++)
-	{
-		if (blue_o_y[i] > 730)
-		{
-			if (which_obs_blue[i] >= totalCurrentItems / 2)
-			{
-				currentCommand = GameOver;
-				SBDL::playSound(dieMissSound, 1);
-			}
-			else
-			{
-				which_obs_blue[i] = rand() % totalCurrentItems;
-				blue_o_y[i] = -35;
-				which_x_blue[i] = rand() % 2;
+{
+    if (blue_o_y[i] > 730)
+    {
+        if (which_obs_blue[i] >= totalCurrentItems / 2)
+        {
+            currentCommand = GameOver;
+            SBDL::playSound(dieMissSound, 1);
+        }
+        else
+        {
+            int newObsIndex = rand() % (totalCurrentItems / 2);
+            while (newObsIndex == which_obs_blue[i]) {
+                newObsIndex = rand() % (totalCurrentItems / 2);
+            }
 
-			}
-		}
-		if (red_o_y[i] > 730)
-		{
-			if (which_obs_red[i] >= totalCurrentItems / 2)
-			{
-				currentCommand = GameOver;
-				SBDL::playSound(dieMissSound, 1);
-			}
-			else
-			{
-				which_obs_red[i] = rand() % totalCurrentItems;
-				red_o_y[i] = -35;
-				which_x_red[i] = rand() % 2;
+            which_obs_blue[i] = newObsIndex;
+            blue_o_y[i] = -35;
+            which_x_blue[i] = rand() % 2;
+        }
+    }
+    if (red_o_y[i] > 730)
+    {
+        if (which_obs_red[i] >= totalCurrentItems / 2)
+        {
+            currentCommand = GameOver;
+            SBDL::playSound(dieMissSound, 1);
+        }
+        else
+        {
+            int newObsIndex = rand() % (totalCurrentItems / 2);
+            while (newObsIndex == which_obs_red[i]) {
+                newObsIndex = rand() % (totalCurrentItems / 2);
+            }
 
-			}
-		}
-	}
+            which_obs_red[i] = newObsIndex;
+            red_o_y[i] = -35;
+            which_x_red[i] = rand() % 2;
+        }
+    }
+}
+
 	SBDL::updateRenderScreen();
 
 	if (SBDL::mouseInRect(pauseRect) && SBDL::Mouse.clicked())
