@@ -2,16 +2,24 @@
 #include "SBDL.h"
 #include <time.h>
 #include <iostream>
-enum command
+
+using namespace std;
+
+enum Command
 {
-	playit, homeit, gameoverit, pauseit
+	Play, Home, GameOver, Pause
 };
-struct core {
+
+struct Core {
 	int y;
 	int x;
 };
 
-using namespace std;
+const int windowWidth = 440;
+const int windowHeight = 748;
+const int FPS = 60; //frame per second
+const int delay = 1000 / FPS; //delay we need at each frame
+const int totalCurrentItems = 4;
 
 Texture back;
 Texture redCarPic;
@@ -25,48 +33,69 @@ Texture blackBack;
 Texture play;
 Texture home;
 Texture gameover;
+Texture blueObstacle[totalCurrentItems];
+Texture redObstacle[totalCurrentItems];
+
 Sound* scoreSound;
-Sound* dieMiss;
-Sound* dieCollapse;
-Texture blueObstacle[6];
-Texture redObstacle[6];
-const int window_width = 440;
-const int window_height = 748;
-int velocity = 5;
+Sound* dieMissSound;
+Sound* dieCollapseSound;
+
+
+int velocity = 4;
 int score = 0;
-const int FPS = 60; //frame per second
-const int delay = 1000 / FPS; //delay we need at each frame
+
+
 int elapsedTime, startTime;
 int i;
-int which_obs_blue[3];
-int which_obs_red[3];
-int blue_o_y[3];
-int red_o_y[3];
+int which_obs_blue[totalCurrentItems / 2];
+int which_obs_red[totalCurrentItems / 2];
+int blue_o_y[totalCurrentItems / 2];
+int red_o_y[totalCurrentItems / 2];
 int blue_x[2] = { 26 , 135 };
 int red_x[2] = { 245 , 355 };
-int which_x_blue[3];
-int which_x_red[3];
+int which_x_blue[totalCurrentItems / 2];
+int which_x_red[totalCurrentItems / 2];
 int blueCar_x = 25;
 int redCar_x = 355;
-SDL_Rect backRect = { 0,0,window_width ,window_height };
+
+SDL_Rect backRect = { 0,0,windowWidth ,windowHeight };
 SDL_Rect pauseRect = { 15 , 15 , 30 , 40 };
 SDL_Rect blueCarRect = { blueCar_x , 540 , 60 , 110 };
 SDL_Rect redCarRect = { redCar_x , 540 , 60 , 110 };
 SDL_Rect playRect = { 200 , 350 , 150 , 150 };
-SDL_Rect blueObstacleRect[3];
-SDL_Rect redObstacleRect[3];
-command chum = homeit;
-void initializer();
-void moveCar();
-void homePage();
-void gameoverPage();
-void pausePage();
+SDL_Rect blueObstacleRect[totalCurrentItems / 2];
+SDL_Rect redObstacleRect[totalCurrentItems / 2];
+
+Command currentCommand = Home;
+
+void loadAssets();
+void initialize();
+void moveCars();
+void showHomePage();
+void showGameoverPage();
+void showPausePage();
 void playGame();
-void what_to_do(command);
+void handleCommand();
 
 int main(int argc, char *argv[])
 {
-	SBDL::InitEngine("SBDL Test", window_width, window_height);
+	SBDL::InitEngine("Two Cars", windowWidth, windowHeight);
+
+	loadAssets();
+	srand(time(NULL));
+
+	while (SBDL::isRunning())
+	{
+		startTime = SBDL::getTime();
+		handleCommand();
+		elapsedTime = SBDL::getTime() - startTime;
+		if (elapsedTime < delay)
+			SBDL::delay(delay - elapsedTime);
+	}
+}
+
+void loadAssets() 
+{
 	//loading assets
 	back = SBDL::loadTexture("assets/Background.png");
 	redCarPic = SBDL::loadTexture("assets/Cars/RedCar.png");
@@ -81,98 +110,55 @@ int main(int argc, char *argv[])
 	home = SBDL::loadTexture("assets/Button/Home.png");
 	gameover = SBDL::loadTexture("assets/GameOverBackground.png");
 	scoreSound = SBDL::loadSound("assets/Sounds/score.wav");
-	dieCollapse = SBDL::loadSound("assets/sounds/die1.wav");
-	dieMiss = SBDL::loadSound("assets/sounds/die2.wav");
+	dieCollapseSound = SBDL::loadSound("assets/sounds/die1.wav");
+	dieMissSound = SBDL::loadSound("assets/sounds/die2.wav");
 	//finish loading assets
-	for (i = 0; i < 3; i++)
-		blueObstacle[i] = blueRect;
-	for (i = 3; i < 6; i++)
-		blueObstacle[i] = blueCir;
-	for (i = 0; i < 3; i++)
-		redObstacle[i] = redRect;
-	for (i = 3; i < 6; i++)
-		redObstacle[i] = redCir;
-	srand(time(NULL));
 
-	while (SBDL::isRunning())
-	{
-		startTime = SBDL::getTime();
-		what_to_do(chum);
-		elapsedTime = SBDL::getTime() - startTime;
-		if (elapsedTime < delay)
-			SBDL::delay(delay - elapsedTime);
-	}
+	for (i = 0; i < totalCurrentItems; i++) 
+		if (i < totalCurrentItems / 2) {
+			blueObstacle[i] = blueRect;
+			redObstacle[i] = redRect;
+		}
+		else {
+			blueObstacle[i] = blueCir;
+			redObstacle[i] = redCir;
+		}
+		
 }
 
-void initializer()
+void initialize()
 {
 	blueCar_x = 25;
 	redCar_x = 355;
-	for (i = 0; i < 3; i++)
-	{
-		which_obs_blue[i] = rand() % 6;
-	}
 
-	for (i = 0; i < 3; i++)
-	{
-		which_obs_red[i] = rand() % 6;
-	}
-
-	for (i = 0; i < 3; i++)
-	{
-		blue_o_y[i] = -50 - 250 * i;
-	}
-
-	for (i = 0; i < 3; i++)
-	{
-		red_o_y[i] = -100 - 250 * i;
-	}
-
-	for (i = 0; i < 3; i++)
-	{
+	for (i = 0; i < totalCurrentItems / 2; i++) {
+		which_obs_blue[i] = rand() % totalCurrentItems;
+		which_obs_red[i] = rand() % totalCurrentItems;
+		blue_o_y[i] = -150 - 350 * i;
+		red_o_y[i] = -100 - 350 * i;
 		which_x_blue[i] = rand() % 2;
-	}
-
-	for (i = 0; i < 3; i++)
-	{
 		which_x_red[i] = rand() % 2;
 	}
 }
-void moveCar()
+
+void moveCars()
 {
 	if (SBDL::keyPressed(SDL_SCANCODE_LEFT))
 	{
-
-		if (blueCar_x == 25)
-		{
-			blueCar_x = 135;
-			playGame();
-		}
-		else
-		{
-			blueCar_x = 25;
-			playGame();
-		}
-
+		blueCar_x = blueCar_x == 25 ? 135 : 25;
+		playGame();
 	}
 	if (SBDL::keyPressed(SDL_SCANCODE_RIGHT))
 	{
-		if (redCar_x == 355)
-		{
-			redCar_x = 245;
-			playGame();
-		}
-		else
-		{
-			redCar_x = 355;
-			playGame();
-		}
+		redCar_x = redCar_x == 355 ? 245 : 355;
+		playGame();
 	}
 }
-void homePage()
+
+void showHomePage()
 {
 	SDL_Rect playRect = { 145 , 300 , 150 , 150 };
-	SDL_Rect blackBackRect = { 0,0,window_width ,window_height };
+	SDL_Rect blackBackRect = { 0, 0, windowWidth, windowHeight };
 
 	SBDL::showTexture(blackBack, blackBackRect);
 	SBDL::showTexture(play, playRect);
@@ -181,14 +167,15 @@ void homePage()
 
 	if (SBDL::mouseInRect(playRect) && SBDL::Mouse.clicked())
 	{
-		initializer();
-		chum = playit;
+		initialize();
+		currentCommand = Play;
 	}
 
 }
-void gameoverPage()
+
+void showGameoverPage()
 {
-	SDL_Rect gameoverRect = { 0 , 0 , window_width , window_height };
+	SDL_Rect gameoverRect = { 0 , 0 , windowWidth , windowHeight };
 	SDL_Rect retryRect = { 165 , 375 , 125 , 125 };
 	SDL_Rect newHomeRect = { 140 , 537 , 67 , 67 };
 	SBDL::showTexture(gameover, gameoverRect);
@@ -199,18 +186,19 @@ void gameoverPage()
 	{
 		SBDL::updateEvents();
 		SBDL::updateRenderScreen();
-		chum = playit;
+		currentCommand = Play;
 	}
 	if (SBDL::mouseInRect(newHomeRect) && SBDL::Mouse.clicked())
 	{
 		SBDL::updateEvents();
 		SBDL::updateRenderScreen();
-		chum = homeit;
+		currentCommand = Home;
 	}
 }
-void pausePage()
+
+void showPausePage()
 {
-	SDL_Rect blackBackRect = { 0,0,window_width ,window_height };
+	SDL_Rect blackBackRect = { 0,0,windowWidth ,windowHeight };
 	SDL_Rect playRect = { 240 , 320 , 80 , 80 };
 	SDL_Rect homeRect = { 125 , 320 , 80 , 80 };
 	SBDL::showTexture(blackBack, blackBackRect);
@@ -221,20 +209,21 @@ void pausePage()
 	if (SBDL::mouseInRect(playRect) && SBDL::Mouse.clicked())
 	{
 		SBDL::updateRenderScreen();
-		chum = playit;
+		currentCommand = Play;
 	}
 	if (SBDL::mouseInRect(homeRect) && SBDL::Mouse.clicked())
 	{
-		chum = homeit;
+		currentCommand = Home;
 		SBDL::updateRenderScreen();
 	}
 }
+
 void playGame()
 {
-	backRect = { 0,0,window_width ,window_height };
+	backRect = { 0,0,windowWidth ,windowHeight };
 	pauseRect = { 15 , 15 , 30 , 40 };
 	SBDL::updateEvents();
-	moveCar();
+	moveCars();
 	blueCarRect = { blueCar_x , 540 , 60 , 110 };
 	redCarRect = { redCar_x , 540 , 60 , 110 };
 	playRect = { 200 , 350 , 150 , 150 };
@@ -246,7 +235,7 @@ void playGame()
 	if (elapsedTime < delay)
 		SBDL::delay(delay - elapsedTime);
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < totalCurrentItems / 2; i++)
 	{
 		blueObstacleRect[i] = { blue_x[which_x_blue[i]], blue_o_y[i] , 60 , 60 };
 		SBDL::showTexture(blueObstacle[which_obs_blue[i]], blueObstacleRect[i]);
@@ -256,25 +245,25 @@ void playGame()
 		red_o_y[i] += velocity;
 	}
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < totalCurrentItems / 2; i++)
 	{
-		if (SBDL::hasIntersectionRect(blueCarRect, blueObstacleRect[i]) && (which_obs_blue[i] == 0 || which_obs_blue[i] == 1 || which_obs_blue[i] == 2))
+		if (SBDL::hasIntersectionRect(blueCarRect, blueObstacleRect[i]) && (which_obs_blue[i] < totalCurrentItems / 2))
 		{
-			chum = gameoverit;
-			SBDL::playSound(dieCollapse, 1);
+			currentCommand = GameOver;
+			SBDL::playSound(dieCollapseSound, 1);
 		}
-		if (SBDL::hasIntersectionRect(redCarRect, redObstacleRect[i]) && (which_obs_red[i] == 0 || which_obs_red[i] == 1 || which_obs_red[i] == 2))
+		if (SBDL::hasIntersectionRect(redCarRect, redObstacleRect[i]) && (which_obs_red[i] < totalCurrentItems / 2))
 		{
-			chum = gameoverit;
-			SBDL::playSound(dieCollapse, 1);
+			currentCommand = GameOver;
+			SBDL::playSound(dieCollapseSound, 1);
 		}
-		if (SBDL::hasIntersectionRect(blueCarRect, blueObstacleRect[i]) && (which_obs_blue[i] == 3 || which_obs_blue[i] == 4 || which_obs_blue[i] == 5))
+		if (SBDL::hasIntersectionRect(blueCarRect, blueObstacleRect[i]) && (which_obs_blue[i] >= totalCurrentItems / 2))
 		{
 			SBDL::playSound(scoreSound, 1);
 			blue_o_y[i] = -50;
 			score++;
 		}
-		if (SBDL::hasIntersectionRect(redCarRect, redObstacleRect[i]) && (which_obs_red[i] == 3 || which_obs_red[i] == 4 || which_obs_red[i] == 5))
+		if (SBDL::hasIntersectionRect(redCarRect, redObstacleRect[i]) && (which_obs_red[i] >= totalCurrentItems / 2))
 		{
 			SBDL::playSound(scoreSound, 1);
 			red_o_y[i] = -50;
@@ -282,18 +271,18 @@ void playGame()
 		}
 	}
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < totalCurrentItems / 2; i++)
 	{
 		if (blue_o_y[i] > 730)
 		{
-			if (which_obs_blue[i] == 3 || which_obs_blue[i] == 4 || which_obs_blue[i] == 5)
+			if (which_obs_blue[i] >= totalCurrentItems / 2)
 			{
-				chum = gameoverit;
-				SBDL::playSound(dieMiss, 1);
+				currentCommand = GameOver;
+				SBDL::playSound(dieMissSound, 1);
 			}
 			else
 			{
-				which_obs_blue[i] = rand() % 6;
+				which_obs_blue[i] = rand() % totalCurrentItems;
 				blue_o_y[i] = -35;
 				which_x_blue[i] = rand() % 2;
 
@@ -301,14 +290,14 @@ void playGame()
 		}
 		if (red_o_y[i] > 730)
 		{
-			if (which_obs_red[i] == 3 || which_obs_red[i] == 4 || which_obs_red[i] == 5)
+			if (which_obs_red[i] >= totalCurrentItems / 2)
 			{
-				chum = gameoverit;
-				SBDL::playSound(dieMiss, 1);
+				currentCommand = GameOver;
+				SBDL::playSound(dieMissSound, 1);
 			}
 			else
 			{
-				which_obs_red[i] = rand() % 6;
+				which_obs_red[i] = rand() % totalCurrentItems;
 				red_o_y[i] = -35;
 				which_x_red[i] = rand() % 2;
 
@@ -319,33 +308,34 @@ void playGame()
 
 	if (SBDL::mouseInRect(pauseRect) && SBDL::Mouse.clicked())
 	{
-		chum = pauseit;
+		currentCommand = Pause;
 	}
 }
-void what_to_do(command chum)
+
+void handleCommand()
 {
-	switch (chum)
+	switch (currentCommand)
 	{
-	case playit:
+	case Play:
 	{
 		playGame();
 		break;
 	}
-	case homeit:
+	case Home:
 	{
-		initializer();
-		homePage();
+		initialize();
+		showHomePage();
 		break;
 	}
-	case gameoverit:
+	case GameOver:
 	{
-		initializer();
-		gameoverPage();
+		initialize();
+		showGameoverPage();
 		break;
 	}
-	case pauseit:
+	case Pause:
 	{
-		pausePage();
+		showPausePage();
 		break;
 	}
 	}
