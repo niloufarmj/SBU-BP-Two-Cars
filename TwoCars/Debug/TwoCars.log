@@ -1,0 +1,4 @@
+﻿  TwoCars.cpp
+d:\projects\twocars\twocars\twocars.cpp(95): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+  TwoCars.vcxproj -> D:\Projects\TwoCars\Debug\TwoCars.exe
+  TwoCars.vcxproj -> D:\Projects\TwoCars\Debug\TwoCars.pdb (Full PDB)
